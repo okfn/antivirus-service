@@ -1,6 +1,6 @@
 # Kubernetes example. One pod with two containers: the official ClamAV image and our HTTP service.
-# Both run as non-root with a read-only root filesystem. This was tested with
-# docker, not on Fargate.
+# REQUIREMENT: both run as non-root with a read-only root filesystem. Only the
+# mounted folders can be written. This was tested with docker, not on Fargate.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,10 +22,11 @@ spec:
         fsGroup: 101
       containers:
         - name: clamd
-          image: clamav/clamav:stable@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
+          image: clamav/clamav:1.5.4
           # The image's /init needs root and a writable filesystem, so this runs
           # clamd and freshclam directly. Signatures start from the ones in the
           # image, copied to a writable folder that freshclam can update.
+          # Same script as clamd-start.sh: a test keeps them equal.
           command: ["sh", "-c"]
           args:
             - |
@@ -47,7 +48,10 @@ spec:
           securityContext:
             runAsUser: 100
             runAsGroup: 101
+            runAsNonRoot: true
             readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           resources:
             requests:
               cpu: "1"
@@ -70,7 +74,10 @@ spec:
             - containerPort: 8000
           securityContext:
             runAsUser: 10001
+            runAsNonRoot: true
             readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           resources:
             requests:
               cpu: "250m"

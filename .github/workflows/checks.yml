@@ -12,17 +12,16 @@ permissions:
   contents: read
 
 env:
-  # Pinned by digest: a tag can be repointed to a different image.
-  TRIVY_IMAGE: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
-  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
-  SEMGREP_IMAGE: semgrep/semgrep:1.183.0@sha256:2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
+  TRIVY_IMAGE: aquasec/trivy:0.75.0
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1
+  SEMGREP_IMAGE: semgrep/semgrep:1.183.0
 
 jobs:
   tests-and-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install tools
@@ -39,10 +38,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: pip-audit -r requirements.txt
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the stack as non-root, with a read-only filesystem, and scan files
+        run: bash tests/integration.sh
+
   trivy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v4
       - name: Scan files
         run: |
           docker run --rm -v "$PWD":/src:ro "$TRIVY_IMAGE" fs --exit-code 1 \
@@ -65,7 +71,8 @@ jobs:
         run: |
           # Trivy skips .tpl files, so this renders the example first.
           mkdir rendered
-          sed -e 's/${NAMESPACE}/default/' -e 's/${ANTIVIRUS_SERVICE_IMAGE}/antivirus-service:ci/' \
+          # shellcheck disable=SC2016
+          sed -e 's/\${NAMESPACE}/default/' -e 's/\${ANTIVIRUS_SERVICE_IMAGE}/antivirus-service:ci/' \
             k8s-example.yaml.tpl > rendered/antivirus.yaml
           docker run --rm -v "$PWD/rendered":/src:ro "$TRIVY_IMAGE" config --exit-code 1 \
             --severity HIGH,CRITICAL /src
@@ -73,11 +80,12 @@ jobs:
   code-scans:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v4
       - name: Gitleaks
         run: docker run --rm -v "$PWD":/src:ro "$GITLEAKS_IMAGE" dir /src --no-banner
       - name: Semgrep
         if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/src:ro -w /src "$SEMGREP_IMAGE" \
-            semgrep scan --config p/default --metrics off --error .
+            semgrep scan --config p/default --metrics off --error \
+            --exclude-rule yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag .

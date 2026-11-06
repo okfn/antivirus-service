@@ -8,20 +8,39 @@ It runs next to the official [`clamav/clamav`](https://hub.docker.com/r/clamav/c
 CKAN job --HTTP--> antivirus-service --clamd protocol--> clamav/clamav
 ```
 
+## Container requirements
+
+**Containers must run as non-root and with a read-only root filesystem.** Only the mounted folders can be written.
+
+The exact mounts can be defined when deploying, but local runs and tests must always run this way. `tests/integration.sh` fails otherwise.
+
+| Container | Writable folders                | Used for                                |
+| --------- | ------------------------------- | --------------------------------------- |
+| `clamd`   | `/tmp`                          | Config files, and each file being scanned |
+| `clamd`   | `/db`                           | Signatures, updated by freshclam        |
+| `clamd`   | `/run/clamav`                   | Runtime files                           |
+| `service` | `/scans`                        | Files waiting for a scan                |
+| `service` | `/tmp`                          | gunicorn runtime files                  |
+
+The official ClamAV image starts with an `/init` script that needs root and a writable filesystem. `clamd-start.sh` replaces it, so the image itself stays unchanged. The ClamAV settings are in that script.
+
 ## Files
 
 - `app.py`: HTTP API, queue and state.
 - `clamd_engine.py`: the only file that knows about ClamAV. Another engine only needs `scan(path)` and `version()`.
+- `clamd-start.sh`: starts clamd and freshclam without root.
 - `demo_client.py`: what the CKAN job would do.
+- `tests/integration.sh`: runs the real stack, checks the container requirements and scans test files.
 - `k8s-example.yaml.tpl`: Kubernetes example.
 
 ## Try it
 
-    docker compose up --build -d
-    curl http://127.0.0.1:8088/health
-    printf 'X5O!P%%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > eicar.txt
-    python3 demo_client.py eicar.txt
-    rm eicar.txt
+    bash tests/integration.sh
+
+Or start it and send your own file:
+
+    docker compose up --build -d --wait
+    python3 demo_client.py path/to/file
     docker compose down -v
 
 ## API
@@ -88,4 +107,3 @@ clamd memory: 950 MiB idle, 1.4 GiB while scanning, 1.9 GiB during a signature r
 - Optional token, for networks that are not closed.
 - TLS and documentation for running the service outside a private network.
 - Try the k8s example on Fargate, including non-root, read-only filesystem and disk limits.
-- Pin the Python base image by digest.

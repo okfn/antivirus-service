@@ -1,20 +1,56 @@
-# Local demo. Two containers: the official ClamAV image, unchanged, and our
-# small HTTP service. On Kubernetes they would be two containers of one pod.
+# Local demo and integration tests. Two containers: the official ClamAV image and
+# our small HTTP service. On Kubernetes they would be two containers of one pod.
+#
+# REQUIREMENT: containers run as non-root with a read-only root filesystem. Only
+# the folders mounted here can be written. The exact mounts can be defined when
+# deploying, but local runs and tests must always run this way.
 services:
   clamd:
-    image: clamav/clamav:stable
-    environment:
-      # File limits: keep them above the largest upload.
-      CLAMD_CONF_MaxFileSize: 1600M
-      CLAMD_CONF_StreamMaxLength: 1600M
-      CLAMD_CONF_MaxScanSize: 4000M
-      # Report instead of silently skipping what exceeds a limit.
-      CLAMD_CONF_AlertExceedsMax: "yes"
+    image: clamav/clamav:1.5.4
+    # The image's /init needs root and a writable filesystem.
+    entrypoint: ["sh", "/start.sh"]
+    user: "100:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # The service's health check covers clamd.
+    healthcheck:
+      disable: true
+    volumes:
+      - ./clamd-start.sh:/start.sh:ro
+      # clamd stores each file here while it scans it.
+      - clamd-tmp:/tmp
+    tmpfs:
+      # Signatures, updated by freshclam.
+      - /db:uid=100,gid=101,size=1g
+      - /run/clamav:uid=100,gid=101
 
   service:
     build: .
+    user: "10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       CLAMD_HOST: clamd
       MAX_FILE_SIZE_MB: "1600"
+    volumes:
+      # Files waiting for a scan. They can be large, so this is not a tmpfs.
+      - scans:/scans
+    tmpfs:
+      - /tmp:uid=10001
     ports:
       - "127.0.0.1:8088:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=5)"
+      interval: 5s
+      timeout: 8s
+      retries: 30
+
+volumes:
+  clamd-tmp:
+  scans:
