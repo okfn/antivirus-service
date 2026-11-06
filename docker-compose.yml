@@ -1,0 +1,20 @@
+# Local demo. Two containers: the official ClamAV image, unchanged, and our
+# small HTTP service. On Kubernetes they would be two containers of one pod.
+services:
+  clamd:
+    image: clamav/clamav:stable
+    environment:
+      # File limits: keep them above the largest upload.
+      CLAMD_CONF_MaxFileSize: 1600M
+      CLAMD_CONF_StreamMaxLength: 1600M
+      CLAMD_CONF_MaxScanSize: 4000M
+      # Report instead of silently skipping what exceeds a limit.
+      CLAMD_CONF_AlertExceedsMax: "yes"
+
+  service:
+    build: .
+    environment:
+      CLAMD_HOST: clamd
+      MAX_FILE_SIZE_MB: "1600"
+    ports:
+      - "127.0.0.1:8088:8000"
