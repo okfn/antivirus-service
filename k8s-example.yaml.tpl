@@ -65,7 +65,7 @@ spec:
             - { name: clamd-tmp, mountPath: /tmp }
             - { name: clamd-run, mountPath: /run/clamav }
             - { name: clamd-db, mountPath: /db }
-        - name: service
+        - name: app
           image: ${ANTIVIRUS_SERVICE_IMAGE}
           env:
             - { name: CLAMD_HOST, value: localhost }
@@ -94,12 +94,12 @@ spec:
             periodSeconds: 30
           volumeMounts:
             - { name: scans, mountPath: /scans }
-            - { name: service-tmp, mountPath: /tmp }
+            - { name: app-tmp, mountPath: /tmp }
       volumes:
         # Files waiting for a scan. Each one also uses space in clamd-tmp while
         # it is scanned, and Fargate limits the pod's total ephemeral storage.
         - { name: scans, emptyDir: {} }
-        - { name: service-tmp, emptyDir: {} }
+        - { name: app-tmp, emptyDir: {} }
         - { name: clamd-tmp, emptyDir: {} }
         - { name: clamd-run, emptyDir: {} }
         - { name: clamd-db, emptyDir: {} }

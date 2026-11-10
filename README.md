@@ -19,8 +19,8 @@ The exact mounts can be defined when deploying, but local runs and tests must al
 | `clamd`   | `/tmp`                          | Config files, and each file being scanned |
 | `clamd`   | `/db`                           | Signatures, updated by freshclam        |
 | `clamd`   | `/run/clamav`                   | Runtime files                           |
-| `service` | `/scans`                        | Files waiting for a scan                |
-| `service` | `/tmp`                          | gunicorn runtime files                  |
+| `app`     | `/scans`                        | Files waiting for a scan                |
+| `app`     | `/tmp`                          | gunicorn runtime files                  |
 
 The official ClamAV image starts with an `/init` script that needs root and a writable filesystem. `clamd-start.sh` replaces it, so the image itself stays unchanged. The ClamAV settings are in that script.
 

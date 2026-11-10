@@ -17,7 +17,7 @@ trap cleanup EXIT
 
 compose up -d --build --wait
 
-for name in clamd service; do
+for name in clamd app; do
     container=$(compose ps -q "$name")
 
     read_only=$(docker inspect "$container" --format '{{.HostConfig.ReadonlyRootfs}}')

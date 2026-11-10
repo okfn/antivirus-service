@@ -13,7 +13,7 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
-    # The service's health check covers clamd.
+    # The app's health check covers clamd.
     healthcheck:
       disable: true
     volumes:
@@ -25,7 +25,7 @@ services:
       - /db:uid=100,gid=101,size=1g
       - /run/clamav:uid=100,gid=101
 
-  service:
+  app:
     build: .
     user: "10001"
     read_only: true

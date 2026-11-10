@@ -11,7 +11,7 @@ def test_manifest_runs_the_same_clamd_script_as_compose():
 
 
 def test_every_container_is_non_root_and_read_only():
-    containers = MANIFEST.count("- name: clamd") + MANIFEST.count("- name: service")
+    containers = MANIFEST.count("- name: clamd") + MANIFEST.count("- name: app")
     assert containers == 2
     assert MANIFEST.count("runAsNonRoot: true") == containers
     assert MANIFEST.count("readOnlyRootFilesystem: true") == containers
